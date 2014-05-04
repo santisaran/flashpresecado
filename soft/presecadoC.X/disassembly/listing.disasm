@@ -1,0 +1,558 @@
+Disassembly Listing for presecadoC
+Generated From:
+/home/saran/MPLABXProjects/presecadoC/presecadoC.X/dist/default/debug/presecadoC.X.debug.elf
+19/04/2014 11:29:52
+
+---  /home/saran/MPLABXProjects/presecadoC/presecadoC.X/main.c  -----------------------------------------
+1:             /* 
+2:              * File:   main.c
+3:              * Author: saran
+4:              *
+5:              * Created on 5 de abril de 2014, 15:36
+6:              */
+7:             //#define NO_BIT_DEFINES
+8:             
+9:             #include <xc.h>
+10:            #include <pic16f818.h>
+11:            #include <stdint.h>
+12:            #include <stdbool.h>
+13:            
+14:            #define REC_T_INPUTS 10
+15:            
+16:            #define setbit(var, bit)  ((var) |= (1 << (bit)))
+17:            #define clrbit(var, bit)  ((var) &= ~(1 << (bit)))
+18:            #define testbit(var, bit) ((var) & (1 <<(bit)))
+19:            
+20:            #define TEMPMAX     210
+21:            #define TEMPMIN     50
+22:            #define TIEMMAX     9*60-1
+23:            
+24:            #define T_RECARGAINI 500    //tiempo de primera repetición ms
+25:            #define T_RECARGAREP 200    //tiempo de repetición ms
+26:            
+27:            /*
+28:             * 
+29:             */
+30:            //Definiciones de variables displays.
+31:            
+32:            #define SEL_tempd0  RA5
+33:            #define SEL_tempd1  RA3
+34:            #define SEL_tempd2  RA2
+35:            #define SEL_timed0  RA1
+36:            #define SEL_timed1  RA0
+37:            #define SEGLT       RB0
+38:            
+39:            #define LEDR        RA4
+40:            #define LEDV        RB5
+41:            
+42:            //defines entradas
+43:            #define SWTIMEmas   RA3
+44:            #define SWTIMEmenos RA2
+45:            #define SWTEMPmas   RA1
+46:            #define SWTEMPmenos RA0
+47:            #define SWSTARTSTOP RA4
+48:            
+49:            #define SWTIMEmastris   TRISRA3
+50:            #define SWTIMEmenostris TRISRA2
+51:            #define SWTEMPmastris   TRISRA1
+52:            #define SWTEMPmenostris TRISRA0
+53:            #define SWSTARTSTOPtris TRISRA4
+54:            
+55:            typedef struct{
+56:             unsigned int  b0 :1;
+57:             unsigned int  b1 :1;
+58:             unsigned int  b2 :1;
+59:             unsigned int  b3 :1;
+60:             unsigned int  b4 :1;
+61:             unsigned int  b5 :1;
+62:             unsigned int  b6 :1;
+63:             unsigned int  b7 :1;
+64:            } Flags;
+65:            /* i.e. uint8_t <variable_name>; */
+66:            
+67:            typedef union{
+68:                uint8_t value;
+69:                Flags bits;
+70:            } Registro;
+71:            
+72:            Registro myflags;
+73:            
+74:            
+75:            enum bits{
+76:                swTempMenos  =   0,
+77:                swTempMas,
+78:                swTiempoMenos,
+79:                swTiempoMas,
+80:                swStartStop,
+81:            };
+82:            
+83:            uint8_t entradas, bloq_entradas;
+84:            uint8_t aux;
+85:            uint16_t tiempo; //590 segundos maximo
+86:            uint8_t temperatura;    //210 grados máximo
+87:            uint8_t tempd0, tempd1, tempd2;
+88:            uint8_t timed0, timed1;
+89:            uint8_t t_inputs;
+90:            uint16_t t_btnpress;     //timer para detectar botón presionado por mas de 0.5s
+91:            
+92:            
+93:            void delay_100us(void);
+94:            
+95:            void encender(void){
+96:            }
+0125  0008     RETURN
+97:            
+98:            void apagar(void){
+99:            }
+0126  0008     RETURN
+100:           
+101:           void leertemp(void){
+102:           }
+0124  0008     RETURN
+103:           
+104:           void verteclas(void){
+105:           
+106:               static Registro old_teclas;
+107:               uint8_t trisabk,puertoabk;
+108:           
+109:               trisabk = TRISA;
+0086  1683     BSF STATUS, 0x5
+0087  1303     BCF STATUS, 0x6
+0088  0805     MOVF PORTA, W
+0089  00D6     MOVWF 0x56
+008A  0856     MOVF 0x56, W
+008B  00D7     MOVWF trisabk
+110:               puertoabk = PORTA;
+008C  1283     BCF STATUS, 0x5
+008D  1303     BCF STATUS, 0x6
+008E  0805     MOVF PORTA, W
+008F  00D6     MOVWF 0x56
+0090  0856     MOVF 0x56, W
+0091  00D8     MOVWF puertoabk
+111:           
+112:               TRISA = TRISA | 0x1F;
+0092  1683     BSF STATUS, 0x5
+0093  1303     BCF STATUS, 0x6
+0094  0805     MOVF PORTA, W
+0095  381F     IORLW 0x1F
+0096  0085     MOVWF PORTA
+113:           
+114:               delay_100us();
+0097  211F     CALL 0x11F
+115:               if(old_teclas.value  == (PORTA & 0x1F) ){
+0098  1283     BCF STATUS, 0x5
+0099  1303     BCF STATUS, 0x6
+009A  0805     MOVF PORTA, W
+009B  391F     ANDLW 0x1F
+009C  0650     XORWF old_teclas, W
+009D  1D03     BTFSS STATUS, 0x2
+009E  28A8     GOTO 0xA8
+116:                   entradas = old_teclas.value;
+009F  0850     MOVF old_teclas, W
+00A0  00D6     MOVWF 0x56
+00A1  0856     MOVF 0x56, W
+00A2  00C6     MOVWF entradas
+117:                   //Hubo algún cambio, recargo el contador
+118:                   t_btnpress = T_RECARGAINI;
+00A3  30F4     MOVLW 0xF4
+00A4  00C0     MOVWF t_btnpress
+00A5  3001     MOVLW 0x1
+00A6  00C1     MOVWF 0x41
+119:               }
+00A7  28AD     GOTO 0xAD
+120:               else{
+121:                   old_teclas.value = (PORTA & 0x1F);
+00A8  0805     MOVF PORTA, W
+00A9  391F     ANDLW 0x1F
+00AA  00D6     MOVWF 0x56
+00AB  0856     MOVF 0x56, W
+00AC  00D0     MOVWF old_teclas
+122:               }
+123:           
+124:               if (testbit(entradas,swStartStop) || (t_btnpress==0)){
+00AD  1A46     BTFSC entradas, 0x4
+00AE  28B3     GOTO 0xB3
+00AF  0841     MOVF 0x41, W
+00B0  0440     IORWF t_btnpress, W
+00B1  1D03     BTFSS STATUS, 0x2
+00B2  28B7     GOTO 0xB7
+125:                   //se soltó el botón, o se activó el tiempo de repetición
+126:                   // -> activar lectura del boton.
+127:                   clrbit(bloq_entradas,swStartStop);
+00B3  30EF     MOVLW 0xEF
+00B4  00D6     MOVWF 0x56
+00B5  0856     MOVF 0x56, W
+00B6  05C5     ANDWF bloq_entradas, F
+128:               }
+129:               if (testbit(entradas,swTiempoMas) || (t_btnpress==0)){
+00B7  19C6     BTFSC entradas, 0x3
+00B8  28BD     GOTO 0xBD
+00B9  0841     MOVF 0x41, W
+00BA  0440     IORWF t_btnpress, W
+00BB  1D03     BTFSS STATUS, 0x2
+00BC  28C1     GOTO 0xC1
+130:                   //se soltó el botón, activar lectura del boton.
+131:                   clrbit(bloq_entradas,swTiempoMas);
+00BD  30F7     MOVLW 0xF7
+00BE  00D6     MOVWF 0x56
+00BF  0856     MOVF 0x56, W
+00C0  05C5     ANDWF bloq_entradas, F
+132:               }
+133:               if (testbit(entradas,swTiempoMenos) || (t_btnpress==0)){
+00C1  1946     BTFSC entradas, 0x2
+00C2  28C7     GOTO 0xC7
+00C3  0841     MOVF 0x41, W
+00C4  0440     IORWF t_btnpress, W
+00C5  1D03     BTFSS STATUS, 0x2
+00C6  28CB     GOTO 0xCB
+134:                   //se soltó el botón, activar lectura del boton.
+135:                   clrbit(bloq_entradas,swTiempoMenos);
+00C7  30FB     MOVLW 0xFB
+00C8  00D6     MOVWF 0x56
+00C9  0856     MOVF 0x56, W
+00CA  05C5     ANDWF bloq_entradas, F
+136:               }
+137:               if (testbit(entradas,swTempMas) || (t_btnpress==0)){
+00CB  18C6     BTFSC entradas, 0x1
+00CC  28D1     GOTO 0xD1
+00CD  0841     MOVF 0x41, W
+00CE  0440     IORWF t_btnpress, W
+00CF  1D03     BTFSS STATUS, 0x2
+00D0  28D5     GOTO 0xD5
+138:                   //se soltó el botón, activar lectura del boton.
+139:                   clrbit(bloq_entradas,swTempMas);
+00D1  30FD     MOVLW 0xFD
+00D2  00D6     MOVWF 0x56
+00D3  0856     MOVF 0x56, W
+00D4  05C5     ANDWF bloq_entradas, F
+140:               }
+141:               if (testbit(entradas,swTempMenos) || (t_btnpress==0)){
+00D5  1846     BTFSC entradas, 0x0
+00D6  28DB     GOTO 0xDB
+00D7  0841     MOVF 0x41, W
+00D8  0440     IORWF t_btnpress, W
+00D9  1D03     BTFSS STATUS, 0x2
+00DA  28DF     GOTO 0xDF
+142:                   //se soltó el botón, activar lectura del boton.
+143:                   clrbit(bloq_entradas,swTempMenos);
+00DB  30FE     MOVLW 0xFE
+00DC  00D6     MOVWF 0x56
+00DD  0856     MOVF 0x56, W
+00DE  05C5     ANDWF bloq_entradas, F
+144:               }
+145:           
+146:           
+147:           
+148:               TRISA = trisabk;
+00DF  0857     MOVF trisabk, W
+00E0  1683     BSF STATUS, 0x5
+00E1  1303     BCF STATUS, 0x6
+00E2  0085     MOVWF PORTA
+149:               PORTA = puertoabk;
+00E3  0858     MOVF puertoabk, W
+00E4  1283     BCF STATUS, 0x5
+00E5  1303     BCF STATUS, 0x6
+00E6  0085     MOVWF PORTA
+150:           }
+00E7  0008     RETURN
+151:           
+152:           void delay_100us(void){
+153:               #asm
+154:               movlw   33;
+011F  3021     MOVLW 0x21
+155:               movwf   (_aux);
+0120  00C4     MOVWF aux
+156:           _decremento:
+157:               decfsz  _aux;
+0121  0BC4     DECFSZ aux, F
+158:               goto    _decremento
+0122  2921     GOTO 0x121
+159:               #endasm;
+160:           }
+0123  0008     RETURN
+161:           //TODO configurar pullups
+162:           void main(void) {
+163:           
+164:               Flags banderas;
+165:               #define ComenzarCuenta banderas.b0
+166:               #define botonTimeUp    banderas.b1
+167:               #define botonTimeDown  banderas.b2
+168:               #define botonTempUp    banderas.b3
+169:               #define botonTempDown  banderas.b4
+170:           
+171:               TMR1 = 65535 - 2000;
+0017  30F8     MOVLW 0xF8
+0018  1283     BCF STATUS, 0x5
+0019  1303     BCF STATUS, 0x6
+001A  008F     MOVWF TMR1H
+001B  302F     MOVLW 0x2F
+001C  008E     MOVWF TMR1L
+172:               TMR1ON = 1;
+001D  1410     BSF T1CON, 0x0
+173:               TMR1IE = 1;
+001E  1683     BSF STATUS, 0x5
+001F  1303     BCF STATUS, 0x6
+0020  140C     BSF PIR1, 0x0
+174:               PEIE = 1;
+0021  170B     BSF INTCON, 0x6
+175:               GIE = 1;
+0022  178B     BSF INTCON, 0x7
+176:           
+177:               while (1){
+0085  2823     GOTO 0x23
+178:                   CLRWDT();
+0023  0064     CLRWDT
+179:                   leertemp();
+0024  2124     CALL 0x124
+180:                   if(!t_inputs){
+0025  08C8     MOVF t_inputs, F
+0026  1D03     BTFSS STATUS, 0x2
+0027  2823     GOTO 0x23
+181:                       t_inputs = REC_T_INPUTS;
+0028  300A     MOVLW 0xA
+0029  00D9     MOVWF 0x59
+002A  0859     MOVF 0x59, W
+002B  00C8     MOVWF t_inputs
+182:                       verteclas();
+002C  2086     CALL 0x86
+183:                       if(bloq_entradas != 0x1F){
+002D  0845     MOVF bloq_entradas, W
+002E  3A1F     XORLW 0x1F
+002F  1903     BTFSC STATUS, 0x2
+0030  2823     GOTO 0x23
+184:                           //si no están todas las entradas bloqueadas, recargo timer
+185:                           //y luego veo cual es la que no está bloqueada
+186:                           if(t_btnpress==0){
+0031  0841     MOVF 0x41, W
+0032  0440     IORWF t_btnpress, W
+0033  1D03     BTFSS STATUS, 0x2
+0034  2839     GOTO 0x39
+187:                               t_btnpress = T_RECARGAREP;
+0035  30C8     MOVLW 0xC8
+0036  00C0     MOVWF t_btnpress
+0037  3000     MOVLW 0x0
+0038  00C1     MOVWF 0x41
+188:                           }
+189:                           if(!testbit(bloq_entradas,swStartStop)){
+0039  1E45     BTFSS bloq_entradas, 0x4
+190:                               //no está bloqueada la lectura, leo la entrada
+191:                               // botón presionado-> entrada en 0
+192:                               if(!testbit(entradas,swStartStop)){
+003A  1A46     BTFSC entradas, 0x4
+003B  2844     GOTO 0x44
+193:                //Acción para el botón StartStop
+194:                                   if(ComenzarCuenta){
+003C  1C5A     BTFSS banderas, 0x0
+003D  2841     GOTO 0x41
+195:                                       apagar();
+003E  2126     CALL 0x126
+196:                                       ComenzarCuenta = 0;
+003F  105A     BCF banderas, 0x0
+197:                                   }
+0040  2843     GOTO 0x43
+198:                                   else{
+199:                                       encender();
+0041  2125     CALL 0x125
+200:                                       ComenzarCuenta = 1;
+0042  145A     BSF banderas, 0x0
+201:                                   }
+202:                                   //bloqueo lectura para evitar reentrar.
+203:                                   setbit(bloq_entradas,swStartStop);
+0043  1645     BSF bloq_entradas, 0x4
+204:                               }
+205:                           }
+206:           
+207:                           if(!testbit(bloq_entradas,swTempMas)){
+0044  1CC5     BTFSS bloq_entradas, 0x1
+208:                               //no está bloqueada la lectura, leo la entrada
+209:                               // botón presionado-> entrada en 0
+210:                               if(!testbit(entradas,swTempMas)){
+0045  18C6     BTFSC entradas, 0x1
+0046  2850     GOTO 0x50
+211:               //Acción para el botón temperatura mas
+212:                                   temperatura++;
+0047  3001     MOVLW 0x1
+0048  00D9     MOVWF 0x59
+0049  0859     MOVF 0x59, W
+004A  07CC     ADDWF temperatura, F
+213:                                   if(temperatura==TEMPMAX+1){
+004B  084C     MOVF temperatura, W
+004C  3AD3     XORLW 0xD3
+004D  1903     BTFSC STATUS, 0x2
+214:                                       temperatura = 0;
+004E  01CC     CLRF temperatura
+215:                                   }
+216:                                   //bloqueo lectura para evitar reentrar.
+217:                                   setbit(bloq_entradas,swTempMas);
+004F  14C5     BSF bloq_entradas, 0x1
+218:                               }
+219:                           }
+220:                           if(!testbit(bloq_entradas,swTempMenos)){
+0050  1C45     BTFSS bloq_entradas, 0x0
+221:                               //no está bloqueada la lectura, leo la entrada
+222:                               // botón presionado-> entrada en 0
+223:                               if(!testbit(entradas,swTempMenos)){
+0051  1846     BTFSC entradas, 0x0
+0052  285E     GOTO 0x5E
+224:               //Acción para el botón temperatura menos
+225:                                   if(temperatura){
+0053  084C     MOVF temperatura, W
+0054  1903     BTFSC STATUS, 0x2
+0055  2859     GOTO 0x59
+226:                                       temperatura--;
+0056  3001     MOVLW 0x1
+0057  02CC     SUBWF temperatura, F
+227:                                   }
+0058  285D     GOTO 0x5D
+228:                                   else{
+229:                                       temperatura = TEMPMAX;
+0059  30D2     MOVLW 0xD2
+005A  00D9     MOVWF 0x59
+005B  0859     MOVF 0x59, W
+005C  00CC     MOVWF temperatura
+230:                                   }
+231:                                   //bloqueo lectura para evitar reentrar.
+232:                                   setbit(bloq_entradas,swTempMenos);
+005D  1445     BSF bloq_entradas, 0x0
+233:                               }
+234:                           }
+235:                           if(!testbit(bloq_entradas,swTiempoMas)){
+005E  1DC5     BTFSS bloq_entradas, 0x3
+236:                               //no está bloqueada la lectura, leo la entrada
+237:                               // botón presionado-> entrada en 0
+238:                               if(!testbit(entradas,swTiempoMas)){
+005F  19C6     BTFSC entradas, 0x3
+0060  2872     GOTO 0x72
+239:               //Acción para el botón tiempo mas
+240:                                   tiempo++;
+0061  3001     MOVLW 0x1
+0062  07C2     ADDWF tiempo, F
+0063  1803     BTFSC STATUS, 0x0
+0064  0AC3     INCF 0x43, F
+0065  3000     MOVLW 0x0
+0066  07C3     ADDWF 0x43, F
+241:                                   if (tiempo==TIEMMAX){
+0067  3002     MOVLW 0x2
+0068  0643     XORWF 0x43, W
+0069  1D03     BTFSS STATUS, 0x2
+006A  286D     GOTO 0x6D
+006B  301B     MOVLW 0x1B
+006C  0642     XORWF tiempo, W
+006D  1D03     BTFSS STATUS, 0x2
+006E  2871     GOTO 0x71
+242:                                       tiempo = 0;
+006F  01C2     CLRF tiempo
+0070  01C3     CLRF 0x43
+243:                                   }
+244:                                   //bloqueo lectura para evitar reentrar.
+245:                                   setbit(bloq_entradas,swTiempoMas);
+0071  15C5     BSF bloq_entradas, 0x3
+246:                               }
+247:                           }
+248:                           if(!testbit(bloq_entradas,swTiempoMenos)){
+0072  1D45     BTFSS bloq_entradas, 0x2
+249:                               //no está bloqueada la lectura, leo la entrada
+250:                               // botón presionado-> entrada en 0
+251:                               if(!testbit(entradas,swTiempoMenos)){
+0073  1946     BTFSC entradas, 0x2
+0074  2823     GOTO 0x23
+252:               //Acción para el botón tiempo menos
+253:                                   if(tiempo){
+0075  0843     MOVF 0x43, W
+0076  0442     IORWF tiempo, W
+0077  1903     BTFSC STATUS, 0x2
+0078  2880     GOTO 0x80
+254:                                       tiempo--;
+0079  3001     MOVLW 0x1
+007A  02C2     SUBWF tiempo, F
+007B  3000     MOVLW 0x0
+007C  1C03     BTFSS STATUS, 0x0
+007D  03C3     DECF 0x43, F
+007E  02C3     SUBWF 0x43, F
+255:                                   }
+007F  2884     GOTO 0x84
+256:                                   else{
+257:                                       tiempo = TIEMMAX;
+0080  301B     MOVLW 0x1B
+0081  00C2     MOVWF tiempo
+0082  3002     MOVLW 0x2
+0083  00C3     MOVWF 0x43
+258:                                   }
+259:                                   //bloqueo lectura para evitar reentrar.
+260:                                   setbit(bloq_entradas,swTiempoMenos);
+0084  1545     BSF bloq_entradas, 0x2
+261:                               }
+262:                           }
+263:                       }
+264:                   }
+265:               }
+266:           }
+267:           
+268:           #define MAXDISPLAYS 5
+269:           
+---  /home/saran/MPLABXProjects/presecadoC/presecadoC.X/interrupts.c  -----------------------------------
+1:             /******************************************************************************/
+2:             /*Files to Include                                                            */
+3:             /******************************************************************************/
+4:             
+5:             #include <xc.h>         /* XC8 General Include File */
+6:             
+7:             #include <stdint.h>         /* For uint8_t definition */
+8:             #include <stdbool.h>        /* For true/false definition */
+9:             #include "interrupts.h"
+10:            
+11:            
+12:            void timer1 (void){
+13:                static uint8_t numDisplay;
+14:                TMR1 = 65535 - 2000;
+00E8  30F8     MOVLW 0xF8
+00E9  1283     BCF STATUS, 0x5
+00EA  1303     BCF STATUS, 0x6
+00EB  008F     MOVWF TMR1H
+00EC  302F     MOVLW 0x2F
+00ED  008E     MOVWF TMR1L
+15:                if(t_inputs) t_inputs--;
+00EE  0848     MOVF t_inputs, W
+00EF  1903     BTFSC STATUS, 0x2
+00F0  28F3     GOTO 0xF3
+00F1  3001     MOVLW 0x1
+00F2  02C8     SUBWF t_inputs, F
+16:                if(++numDisplay == MAXDISPLAYS) numDisplay = 0;
+00F3  3001     MOVLW 0x1
+00F4  00D1     MOVWF __pcstackCOMMON
+00F5  0851     MOVF __pcstackCOMMON, W
+00F6  07CF     ADDWF numDisplay, F
+00F7  084F     MOVF numDisplay, W
+00F8  3A05     XORLW 0x5
+00F9  1903     BTFSC STATUS, 0x2
+00FA  01CF     CLRF numDisplay
+17:                if(t_btnpress) t_btnpress--;
+00FB  0841     MOVF 0x41, W
+00FC  0440     IORWF t_btnpress, W
+00FD  1903     BTFSC STATUS, 0x2
+00FE  0008     RETURN
+00FF  3001     MOVLW 0x1
+0100  02C0     SUBWF t_btnpress, F
+0101  3000     MOVLW 0x0
+0102  1C03     BTFSS STATUS, 0x0
+0103  03C1     DECF 0x41, F
+0104  02C1     SUBWF 0x41, F
+0105  0008     RETURN
+18:                
+19:            }
+20:            
+21:            void interrupt isr(void)
+0004  00FE     MOVWF 0x7E
+22:            {
+23:                if (TMR1IF){
+0106  1C0C     BTFSS PIR1, 0x0
+0107  290C     GOTO 0x10C
+24:                    timer1();
+0108  20E8     CALL 0xE8
+25:                    TMR1IF = 0;
+0109  1283     BCF STATUS, 0x5
+010A  1303     BCF STATUS, 0x6
+010B  100C     BCF PIR1, 0x0
+26:                }
+27:            }
+010C  0855     MOVF 0x55, W

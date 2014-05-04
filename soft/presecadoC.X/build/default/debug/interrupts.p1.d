@@ -1,0 +1,6 @@
+ build/default/debug/interrupts.d  \
+ build/default/debug/interrupts.p1:  \
+ interrupts.c  \
+interrupts.h  \
+tipos.h  \
+hardware.h 

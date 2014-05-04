@@ -1,0 +1,13 @@
+_verteclas: CODE, 401 0 84
+_encender: CODE, 609 0 2
+_main: CODE, 183 0 125
+_controltemp: CODE, 544 0 18
+_convertirTiempo: CODE, 308 0 93
+_timer1: CODE, 29 0 154
+_apagar: CODE, 611 0 2
+__initialization: CODE, 17 0 10
+_delay_100us: CODE, 596 0 5
+_isr: CODE, 562 0 17
+_toggleLatch: CODE, 579 0 9
+_convertirTemp: CODE, 485 0 59
+Total: 578
